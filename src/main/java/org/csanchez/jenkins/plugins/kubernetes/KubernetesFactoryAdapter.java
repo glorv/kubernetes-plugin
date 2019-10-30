@@ -44,6 +44,7 @@ import org.kohsuke.accmod.restrictions.NoExternalUse;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.logging.Level.FINE;
+import static java.util.logging.Level.INFO;
 
 /**
  * @author <a href="mailto:nicolas.deloof@gmail.com">Nicolas De Loof</a>
@@ -169,6 +170,12 @@ public class KubernetesFactoryAdapter {
 
         builder = builder.withRequestTimeout(readTimeout * 1000).withConnectionTimeout(connectTimeout * 1000);
         builder.withMaxConcurrentRequestsPerHost(maxRequestsPerHost);
+        // FIXME: currently `ConfigBuilder` doesn't provide method to set mac concurrent request,
+        // and thus its values will always be 64 by default, so we update it same to maxRequestsPerHost
+        // to make the setting meaningful
+        if (maxRequestsPerHost > builder.getMaxConcurrentRequests()) {
+            builder.withMaxConcurrentRequests(maxRequestsPerHost);
+        }
 
         if (!StringUtils.isBlank(namespace)) {
             builder.withNamespace(namespace);
@@ -176,7 +183,11 @@ public class KubernetesFactoryAdapter {
             builder.withNamespace("default");
         }
 
-        LOGGER.log(FINE, "Creating Kubernetes client: {0}", this.toString());
+        Object[] params = new Object[3];
+        params[0] = builder.getMaxConcurrentRequestsPerHost();
+        params[1] = builder.getMaxConcurrentRequests();
+        params[2] = this.toString();
+        LOGGER.log(INFO, "Creating Kubernetes client with per host concurrency: {0}, total concurrency: {1}, {2}", params);
         return new DefaultKubernetesClient(builder.build());
     }
 
